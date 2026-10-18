@@ -41,9 +41,11 @@ const pendingPay = new Map();    // slot -> round-end money, paid when the next 
 function teamPlayers() {
   const out = [];
   for (const rec of recs.values()) {
-    if (rec.team !== TEAM_T && rec.team !== TEAM_CT) continue;
     const c = controllerOf(rec.slot);
     if (!c || !c.IsConnected()) continue;
+    const team = c.GetTeamNumber();       // (the controller's team now: autobalance moves people just before a round)
+    if (team !== rec.team) { rec.team = team; rec.map = null; }
+    if (team !== TEAM_T && team !== TEAM_CT) continue;
     out.push(rec);
   }
   return out;
@@ -53,7 +55,8 @@ function chooseMaps(k) {
   const order = CONFIG.MAP_ORDER.filter((key) => MAP_BY_KEY[key]);
   if (!order.length) return [];
   k = Math.min(k, order.length);
-  const due = CONFIG.ROUNDS_PER_MAP > 0 && roundsOnSet >= CONFIG.ROUNDS_PER_MAP;
+  let due = CONFIG.ROUNDS_PER_MAP > 0 && roundsOnSet >= CONFIG.ROUNDS_PER_MAP;
+  if (due && k >= order.length && mapSet.length === k) { roundsOnSet = 0; due = false; }   // every map runs: nothing to rotate
   if (mapSet.length === k && !due) return mapSet;
   const votes = {};
   for (const rec of recs.values()) if (rec.want && (rec.team === TEAM_T || rec.team === TEAM_CT)) votes[rec.want] = (votes[rec.want] || 0) + 1;
@@ -64,11 +67,11 @@ function chooseMaps(k) {
   else cand = mapSet.filter((m) => cand.includes(m)).concat(cand.filter((m) => !mapSet.includes(m)));   // keep what runs
   cand = cand.map((m, i) => ({ m, i, v: votes[m] || 0 })).sort((a, b) => (due ? b.v - a.v : 0) || a.i - b.i).map((x) => x.m);
   const next = cand.slice(0, k);
-  if (next.join() !== mapSet.join()) {
+  if (next.slice().sort().join() !== mapSet.slice().sort().join()) {
     roundsOnSet = 0;
     const names = next.map((m) => MAP_BY_KEY[m].title).join(' + ');
     log('maps: ' + names);
-    if (mapSet.length) sayAll('Now playing: ' + names);
+    if (mapSet.length && !isWarmup()) sayAll('Now playing: ' + names);
   }
   mapSet = next;
   return mapSet;
@@ -105,7 +108,7 @@ function mapForLate(rec) {
   const p = round.plan.get(rec.slot);
   if (p && p.team === rec.team && p.map && round.maps.has(p.map)) return p.map;
   let keys = [...round.maps.keys()];
-  if (!keys.length || Instance.IsWarmupPeriod()) {
+  if (!keys.length || isWarmup()) {
     // warmup (no round yet): the maps the first round will use for this many players
     const ps = teamPlayers();
     const nT = ps.filter((r) => r.team === TEAM_T).length;
@@ -163,7 +166,7 @@ function onReset(pawn) {
   rec.alive = true;
   rec.vz = 0;
   guard('name', () => pawn.SetEntityName(pawnName(s)));
-  if (needPlan && !Instance.IsWarmupPeriod()) makePlan();
+  if (needPlan && !isWarmup()) makePlan();
   const planned = round.plan.get(s);
   const fresh = !!planned && planned.team === team && !!planned.map && round.live === false;
   rec.map = planned && planned.team === team && planned.map ? planned.map : mapForLate(rec);
@@ -190,6 +193,17 @@ function onReset(pawn) {
     rec.helpShown = true;
     if (rec.menu) rec.helpPending = true; else message(rec, CONFIG.HELP_LINE, 8);
   }
+}
+
+// a living pawn the script lost track of (missed reset): keep it where it is, on the map it stands on
+function adoptPawn(rec, pawn) {
+  rec.pawn = pawn;
+  rec.alive = true;
+  guard('name', () => pawn.SetEntityName(pawnName(rec.slot)));
+  const p = pawn.GetAbsOrigin();
+  rec.pos = p;
+  rec.map = mapAt(p) || rec.map || mapForLate(rec);
+  dlog(`slot ${rec.slot} picked up alive on ${rec.map}`);
 }
 
 // a moment after spawning: the 1.6 starting pistol (USP for CTs) with 1.6 spare ammo
@@ -222,14 +236,15 @@ function botBuy(rec) {
   rec.money = c.GetMoneySpendableNow();
   const T = rec.team === TEAM_T;
   const m = rec.money;
+  // gun, its ammo, then armour (1.6 bots bought ammo too)
   const list = [];
-  if (m >= 5750 && Math.random() < 0.2) list.push('awp', 'vesthelm');
-  else if (m >= (T ? 3500 : 4100)) list.push(T ? 'ak47' : 'm4a1', 'vesthelm');
-  else if (m >= (T ? 2650 : 2900)) list.push(T ? 'galil' : 'famas', 'kevlar');
-  else if (m >= 2150) list.push('mp5navy', 'kevlar');
-  else if (m >= 1300 && Math.random() < 0.5) list.push('deagle', 'kevlar');
+  if (m >= 6000 && Math.random() < 0.2) list.push('awp', 'ammo_primary', 'vesthelm');
+  else if (m >= (T ? 3800 : 4400)) list.push(T ? 'ak47' : 'm4a1', 'ammo_primary', 'vesthelm');
+  else if (m >= (T ? 2900 : 3150)) list.push(T ? 'galil' : 'famas', 'ammo_primary', 'kevlar');
+  else if (m >= 2300) list.push('mp5navy', 'ammo_primary', 'kevlar');
+  else if (m >= 1400 && Math.random() < 0.5) list.push('deagle', 'ammo_secondary', 'kevlar');
   else if (m >= 650) list.push('kevlar');
-  list.push('ammo_primary', 'ammo_secondary');
+  list.push('ammo_secondary');
   if (!T) list.push('defuser');
   list.push('hegrenade', 'flashbang');
   for (const it of list) buy(rec, it, true);
@@ -237,24 +252,42 @@ function botBuy(rec) {
 
 // ---------------------------------------------------------------- the round
 function timerLeft(t) {
-  if (Instance.IsWarmupPeriod() || !round.live) return null;
+  if (isWarmup() || !round.live) return null;
   if (round.frozen || round.freezeEnd === null) return CONFIG.ROUND_TIME;
   return round.timeLeft;
 }
 
 function onRoundStart() {
-  if (needPlan && !Instance.IsWarmupPeriod()) makePlan();
+  const warm = isWarmup();
+  // a new match (warmup over, mp_restartgame): CS2 resets money and weapons, so 1.6's carry-overs go too
+  if (!warm && guard('rounds', () => Instance.GetRoundsPlayed()) === 0) {
+    pendingPay.clear();
+    lossBonus.clear();
+    for (const rec of recs.values()) { rec.survived = false; rec.lastBuys = []; }
+  }
+  if (needPlan && !warm) {
+    // planned only now (the resets came first, or during warmup): put everyone on their planned map
+    makePlan();
+    for (const rec of recs.values()) {
+      const pawn = rec.alive ? live(rec.pawn) : undefined;
+      if (!pawn || !rec.map) continue;
+      rec.placePos = spawnPoint(rec, true);
+      rec.placeUntil = now() + 0.6;
+      place(rec, pawn);
+      topLine(rec, MAP_BY_KEY[rec.map].title.toUpperCase(), 6);
+    }
+  }
   round.id++;
-  round.live = true;
+  round.live = !warm;
   round.ended = false;
-  round.frozen = Instance.IsFreezePeriod();
+  round.frozen = isFrozen();
   round.freezeEnd = round.frozen ? null : now();
   round.c4Due = now() + 0.5;
   round.firstDecided = null;
   round.startedAt = now();
   round.timeLeft = CONFIG.ROUND_TIME;
   round.emptySince = null;
-  if (!round.frozen && !Instance.IsWarmupPeriod()) onFreezeEnd();
+  if (!round.frozen && !warm) onFreezeEnd();
   // last round's money (1.6 paid the round bonus when the next round started)
   for (const [slot, amount] of pendingPay) {
     const rec = recs.get(slot), c = controllerOf(slot);
@@ -270,7 +303,7 @@ function onFreezeEnd() {
   round.frozen = false;
   round.freezeEnd = now();
   round.lastClock = now();
-  if (Instance.IsWarmupPeriod()) return;
+  if (isWarmup()) return;
   if (CONFIG.SET_ROUND_TIME) guard('roundtime', () => Instance.SetRoundRemainingTime(CONFIG.ROUND_TIME));
   round.timeLeft = CONFIG.ROUND_TIME;
   // the 1.6 round start radio: one random line per team on each map
@@ -286,7 +319,8 @@ function onRoundEnd() {
   round.live = false;
   round.ended = true;
   needPlan = true;
-  if (!Instance.IsWarmupPeriod()) roundsOnSet++;
+  round.endSent = 0;
+  if (!isWarmup()) roundsOnSet++;
   for (const rec of recs.values()) {
     rec.survived = rec.alive;
     if (rec.bought.length) rec.lastBuys = rec.bought;
@@ -303,6 +337,7 @@ function mapDecided(key) {
   const players = [...recs.values()].filter((r) => r.map === key && (r.team === TEAM_T || r.team === TEAM_CT));
   if (CONFIG.ROUND_MONEY) {
     const pay = teamRewards(res);
+    if (!lossBonus.has(key)) lossBonus.set(key, new LossBonus());
     const bonus = lossBonus.get(key).apply(res.winner);
     if (res.winner) pay[otherTeam(res.winner)] += bonus;
     for (const r of players) pendingPay.set(r.slot, (pendingPay.get(r.slot) || 0) + (pay[r.team] || 0));
@@ -334,20 +369,36 @@ function endRound(res) {
     const text = (res.winner === TEAM_T ? 'Terrorists win the round' : res.winner === TEAM_CT ? 'Counter-Terrorists win the round' : 'Round Draw') + `  (maps ${t} - ${ct})`;
     for (const r of recs.values()) if (r.team === TEAM_T || r.team === TEAM_CT) topLine(r, text, 6);
   }
-  const reason = endReasonFor(res);
   log(`round over: ${res.winner === TEAM_T ? 'Terrorists' : res.winner === TEAM_CT ? 'Counter-Terrorists' : 'nobody'} (${res.reason})`);
+  round.endRes = res;
+  round.endTries = 0;
+  sendWin();
+}
+// FireWinCondition with the round's result. Wins use 9 / 8 (Terrorists / CTs win, the same in every numbering CS2 might
+// use); a draw tries CONFIG.DRAW_REASONS in turn. If CS2 hasn't ended the round 3 seconds later, the next value is tried.
+function sendWin() {
+  const res = round.endRes;
+  const list = res.winner === TEAM_T ? [9] : res.winner === TEAM_CT ? [8] : CONFIG.DRAW_REASONS;
+  const reason = CONFIG.EXACT_END_REASONS && res.winner ? endReasonFor(res) : list[Math.min(round.endTries, list.length - 1)];
+  round.endTries++;
+  round.endSent = now();
   if (live(Instance.FindEntityByName(CONFIG.MAP_PARAMS))) {
+    dlog(`FireWinCondition ${reason}`);
     guard('wincond', () => Instance.EntFireAtName({ name: CONFIG.MAP_PARAMS, input: 'FireWinCondition', value: reason }));
-  } else {
-    warnOnce('nomapparams', 'no ' + CONFIG.MAP_PARAMS + ' entity: rounds end on the clock');
-    guard('endround', () => Instance.SetRoundRemainingTime(0));
-  }
+  } else warnOnce('nomapparams', 'no ' + CONFIG.MAP_PARAMS + ' entity: the script cannot end rounds');
 }
 
 function roundThink(t) {
-  if (Instance.IsWarmupPeriod() || !round.live || round.ended) return;
+  if (isWarmup() || !round.live) return;
+  if (round.ended) {
+    // CS2 didn't take the result yet: try again
+    if (round.endSent && t - round.endSent > 3 && round.endTries < 4) { warnOnce('winretry', 'FireWinCondition did not end the round; trying again'); sendWin(); }
+    return;
+  }
+  // C4 for one random terrorist on each map, once everyone has spawned
+  if (round.c4Due && t >= round.c4Due) { round.c4Due = 0; giveBombs(); }
   if (round.frozen) {
-    if (!Instance.IsFreezePeriod()) onFreezeEnd();
+    if (!isFrozen()) onFreezeEnd();
     else return;
   }
   // the clock: CS2's round clock when it is set from here, otherwise our own count
@@ -358,8 +409,6 @@ function roundThink(t) {
   const timeUp = round.timeLeft <= 0;
   // bombs that should have gone off (if CS2's explode event was missed)
   for (const mr of round.maps.values()) if (mr.bomb && !mr.bomb.exploded && !mr.bomb.defused && t > mr.bomb.explodes + 3) { if (mr.explode()) mapDecided(mr.key); }
-  // C4 for one random terrorist on each map, once everyone has spawned
-  if (round.c4Due && t >= round.c4Due) { round.c4Due = 0; giveBombs(); }
   // who is still alive on each map
   const alive = new Map();
   for (const r of recs.values()) if (r.alive && r.map) alive.set(r.map + ':' + r.team, (alive.get(r.map + ':' + r.team) || 0) + 1);
@@ -430,8 +479,8 @@ function onBombExplode(ev) {
 function onKill(ev) {
   const vs = slotOf(ev.player);
   const vrec = recs.get(vs);
-  if (vrec) { vrec.alive = false; vrec.hasC4 = false; closeMenu(vrec); }
-  if (!CONFIG.KILL_MONEY || Instance.IsWarmupPeriod() || !round.live) return;
+  if (vrec) { vrec.alive = false; vrec.survived = false; vrec.hasC4 = false; closeMenu(vrec); }
+  if (!CONFIG.KILL_MONEY || isWarmup() || !round.live) return;
   const att = ev.attacker;
   if (!isPawn(att)) return;
   const as = slotOf(att);
@@ -448,7 +497,9 @@ function onTeamChanged(pawnOrCtrl) {
   const s = slotOf(pawnOrCtrl);
   const rec = recOf(s);
   if (!rec) return;
-  rec.teamCheckAt = 0;
+  const pawn = pawnOf(s);
+  // (CS2 may reset a living pawn first and report the team change after: keep that player)
+  if (pawn && pawn.IsAlive() && pawn === rec.pawn && rec.alive) return;
   rec.alive = false;
   rec.map = null;
   closeMenu(rec);

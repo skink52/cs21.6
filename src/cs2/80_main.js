@@ -56,6 +56,11 @@ function playerTick(rec, t) {
   }
   let pawn = rec.alive ? live(rec.pawn) : undefined;
   if (rec.alive && !pawn) rec.alive = false;
+  // alive but not known as alive (a missed reset): pick them up
+  if (!rec.alive && phase === 0 && c && (rec.team === TEAM_T || rec.team === TEAM_CT)) {
+    const p = live(c.GetPlayerPawn());
+    if (p && p.IsAlive()) { adoptPawn(rec, p); pawn = p; }
+  }
   if (pawn) {
     if (CONFIG.FALL_DAMAGE_16) rec.vz = pawn.GetAbsVelocity().z;
     // spawn: put back on the map's spawn if CS2 moved the player after the reset
@@ -89,7 +94,7 @@ function playerInput(rec, pawn, t) {
   if (!(rec.menu && rec.menu.kind === 'buy') && (!rec.inBuy || canBuyNow(rec) !== null)) { rec.cs2Buy = false; return; }
   let press = false;
   if (CONFIG.BUY_KEY_INSPECT && pawn.WasInputJustPressed(CSInputs.LOOK_AT_WEAPON)) press = true;
-  if (CONFIG.BUY_KEY_CS2) {
+  if (CONFIG.BUY_KEY_CS2 && ((tickNo + rec.slot) & 3) === 0) {
     const open = !!guard('buymenu', () => pawn.IsBuyMenuOpen());
     if (open && !rec.cs2Buy) press = true;
     rec.cs2Buy = open;
@@ -120,6 +125,7 @@ function think() {
   hudBudget = CONFIG.HUD_BUDGET;
   soundsThisTick = 0;
   try {
+    guard('sounds', flushSounds);
     guard('round', () => roundThink(tickTime));
     for (const rec of [...recs.values()]) guard('player', () => playerTick(rec, tickTime));
     guard('say', flushSays);
@@ -214,6 +220,9 @@ Instance.OnPlayerActivate((ev) => guard('activate', () => {
   const s = ev.player.GetPlayerSlot();
   const rec = recOf(s);
   hudReset(s);
+  // (cursor mode left over from a previous player in this slot)
+  const h = hud();
+  if (h) guard('capture', () => h.SetInputCaptureEnabled(s, false));
   rec.capture = false;
   rec.moneyKnown = false;
 }));
@@ -222,7 +231,16 @@ Instance.OnPlayerReset((ev) => guard('reset', () => onReset(ev.player)));
 Instance.OnPlayerTeamChanged((ev) => guard('team', () => onTeamChanged(ev.player)));
 Instance.OnBeginRoundRestart(() => guard('restart', () => { needPlan = true; }));
 Instance.OnRoundStart(() => guard('roundstart', onRoundStart));
-Instance.OnRoundEnd(() => guard('roundend', onRoundEnd));
+Instance.OnRoundEnd((ev) => guard('roundend', () => {
+  // the first test should show whether CS2 read our result the way it was meant (see TESTING.md)
+  const want = round.endRes;
+  if (want && round.ended && round.endSent) {
+    const ok = want.winner ? ev.winningTeam === want.winner : ev.winningTeam !== TEAM_T && ev.winningTeam !== TEAM_CT;
+    log(`CS2 round end: team ${ev.winningTeam}, reason ${ev.reason}` + (ok ? '' : ` - WARNING: expected ${want.winner ? teamName(want.winner) : 'a draw'}`));
+  }
+  round.endRes = null;
+  onRoundEnd();
+}));
 Instance.OnBombPlant((ev) => guard('plant', () => onBombPlant(ev)));
 Instance.OnBombDefuse((ev) => guard('defuse', () => onBombDefuse(ev)));
 Instance.OnBombExplode((ev) => guard('explode', () => onBombExplode(ev)));

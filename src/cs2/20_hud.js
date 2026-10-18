@@ -9,9 +9,10 @@ let hudCheckedTick = -1;
 const hudCache = new Map();     // slot -> Map(key -> class or text)
 
 function hud() {
-  if (hudEnt && hudCheckedTick === tickNo) return hudEnt;
+  if (hudCheckedTick === tickNo) return hudEnt;
   if (live(hudEnt)) { hudCheckedTick = tickNo; return hudEnt; }
   hudEnt = live(Instance.FindEntityByName(CONFIG.HUD));
+  hudCheckedTick = tickNo;
   if (!hudEnt) { warnOnce('hud', 'no custom_hud_layout named ' + CONFIG.HUD + ' - no 1.6 HUD'); return hudEnt; }
   hudCheckedTick = tickNo;
   // a new HUD entity (map reload, round restart re-created it): everyone's cache is stale
@@ -21,9 +22,12 @@ function hud() {
   for (const rec of recs.values()) { rec.capture = false; if (rec.menu) setCapture(rec, true); }
   return hudEnt;
 }
+// colour classes the layout starts with (so switching away from them removes them)
+/** @type {[string, string][]} */
+const HUD_INIT = [['cs_hpb#c', 'cO'], ['cs_tmb#c', 'cO'], ['cs_amb#c', 'cO'], ['cs_mdb#c', 'cG']];
 function hcache(slot) {
   let c = hudCache.get(slot);
-  if (!c) { c = new Map(); hudCache.set(slot, c); }
+  if (!c) { c = new Map(HUD_INIT); hudCache.set(slot, c); }
   return c;
 }
 // one class "slot" per (panel, group): setting a class replaces the previous class in that slot (null = none)
@@ -83,7 +87,7 @@ function drawHud(rec, t) {
   const s = rec.slot;
   if (!hud()) return;
   const onTeam = rec.team === TEAM_T || rec.team === TEAM_CT;
-  hudFlag(s, 'cs_root', 'stOn', onTeam && rec.hudMode !== 'off');
+  hudFlag(s, 'cs_root', 'stOn', onTeam && rec.hudMode !== 'off');      // (menus show even with the HUD off)
   hudFlag(s, 'cs_root', 'stRaised', rec.hudMode === 'raised');
   if (!onTeam) { drawMenu(rec); drawMessage(rec, t); return; }
   const alive = rec.alive;

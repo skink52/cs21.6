@@ -9,15 +9,21 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
 1. **Damage numbers.** `DEBUG_DAMAGE: true` prints every hit. An AK-47 body shot at close range on someone without
    armour should take 36, a headshot 144. If headshots take 4x too much (576), CS2 multiplies the returned damage by the
    hit group again: set `CS2_REAPPLIES_HITGROUP: true`.
-2. **Two bombs at once.** With two or three maps running, can a second map's bomb be planted while one is already
+2. **Round results.** The console prints `[cs16] CS2 round end: team N, reason R` after each round; a `WARNING: expected
+   ...` on that line means CS2 read the script's result differently. Wins are sent as 9 (T) / 8 (CT). A draw tries 10,
+   then 2 (`DRAW_REASONS`); if a draw gives the round to a side, swap them. `EXACT_END_REASONS: true` would send
+   bombed / defused / saved (1 / 7 / 12) so CS2's own win panel names the reason; try it once wins work.
+3. **Two bombs at once.** With two or three maps running, can a second map's bomb be planted while one is already
    planted? If not, the bomb rounds need a scripted bomb (tell me).
-3. **Menu clicks.** Does F open the buy menu with a mouse cursor, and do clicks buy? Does hovering a row show the 1.6
+4. **Menu clicks.** Does F open the buy menu with a mouse cursor, and do clicks buy? Does hovering a row show the 1.6
    picture and description on the right? If clicks don't work: `MENU_MOUSE: false` (W / S / E / R instead).
    Does CS2's B key open anything (with "Nobody can buy" in the map)?
-4. **Radio sounds** ("Go go go", "Terrorists win"): heard by you only, once, not by the whole server.
-5. **Player models**: the class menu changes your agent; no errors about models in the console.
-6. **cvars**: `sv_jump_impulse`, `sv_accelerate` and the `mp_` settings set by the script take (`sv_jump_impulse` in the
+5. **Radio sounds** ("Go go go", "Terrorists win"): heard by you only, once, not by the whole server.
+6. **Player models**: the class menu changes your agent; no errors about models in the console.
+7. **cvars**: `sv_jump_impulse`, `sv_accelerate` and the `mp_` settings set by the script take (`sv_jump_impulse` in the
    console should say 268.33).
+8. **1.6 sounds compile.** If Hammer's build log complains about a `sounds/cs16/*.wav`, the extra data block the
+   file transfer adds at the end of each wav is the suspect (the sound itself is untouched).
 
 ## Checklist
 
@@ -33,3 +39,4 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
 - [ ] Sounds: 1.6 guns, knife, grenades, C4 beeps / plant / defuse / explosion.
 - [ ] Bots buy and plant.
 - [ ] Doors open (train, nuke), ladders climb, crates break when the bomb goes off.
+- [ ] Radar shows the map you play on; the loading screen shows the 1.6 pictures; the map icon in the map list.

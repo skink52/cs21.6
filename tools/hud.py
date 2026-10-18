@@ -181,8 +181,9 @@ json.dump({'items': items, 'cats': cats, 'classes': classes, 'titles': titles}, 
 
 # ---------------------------------------------------------------- css: base
 rule('.CsWrap', width='100%', height='100%')
-rule('.CsRoot', width='100%', height='100%', opacity='0')
-rule('.CsRoot.stOn', opacity='1')
+rule('.CsRoot', width='100%', height='100%')
+rule('.HudP', width='100%', height='1080px', opacity='0')
+rule('.CsRoot.stOn .HudP', opacity='1')
 rule('.Screen', width='100%', height='1080px')
 rule('.HUD_SCOREBOARD_VISIBLE .CsRoot', opacity='0')
 rule('.CsRoot Label', font_family=FONT, color='#f0f0f0', text_shadow='1px 1px 0px #000000', font_weight='bold')
@@ -328,7 +329,8 @@ rule('.CsPreload', width='1px', height='1px', opacity='0')
 preload = P(None, 'CsPreload ' + place(x=0, y=0, w=1, h=1), [P(None, cls) for cls, _ in PRELOAD])
 
 # ---------------------------------------------------------------- xml
-screen = P(None, 'Screen', [preload, bottom, *status, top, msg, menu])
+hudp = P(None, 'HudP', [bottom, *status, top, msg])           # the HUD, off with !hud off; menus stay usable
+screen = P(None, 'Screen', [preload, hudp, menu])
 root = P('cs_root', 'CsRoot', [screen])
 doc = ('<root>\n\t<styles>\n\t\t<include src="file://{resources}/styles/custom_game/cs16.css" />\n\t</styles>\n'
        '\t<Panel class="CsWrap" hittest="false">\n' + root + '\n\t</Panel>\n</root>\n')

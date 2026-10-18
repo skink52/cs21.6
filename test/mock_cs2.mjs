@@ -101,7 +101,7 @@ class Pawn extends Entity {
   FindWeaponBySlot(s) { calls++; return this.weapons.find((w) => w.data.d[2] === s); }
   GetActiveWeapon() { calls++; return this.active; }
   GetC4() { calls++; return this.weapons.find((w) => w.cls === 'weapon_c4'); }
-  GiveNamedItem(cls) { calls++; this.give(cls); }
+  GiveNamedItem(cls) { calls++; if (OPTS.includes('defer')) after(0.02, () => { if (this.alive) this.give(cls); }); else this.give(cls); }
   DropWeapon(w) { calls++; this.weapons = this.weapons.filter((x) => x !== w); if (this.active === w) this.active = this.weapons[0]; }
   DestroyWeapon(w) { calls++; this.DropWeapon(w); }
   SetModel(m) { calls++; stats.models++; if (!/^characters\/models\/.+\.vmdl$/.test(m)) throw new Error('bad model ' + m); }
@@ -143,7 +143,7 @@ const Instance = {
   Msg: (m) => { const s = String(m); stats.msgs.push(s); if (/error in|WARNING/.test(s)) stats.errors.push(s); if (OPTS.includes('v')) console.log(s); },
   GetGameTime: () => time, SetThink: (f) => { thinkFn = f; }, SetNextThink: () => {}, Delay: (s) => new Promise((r) => after(s, r)),
   IsWarmupPeriod: () => { calls++; return warmup; }, IsFreezePeriod: () => { calls++; return frozen; },
-  GetRoundRemainingTime: () => { calls++; return roundTime; }, SetRoundRemainingTime: (t) => { calls++; roundTime = t; },
+  GetRoundRemainingTime: () => { calls++; return roundTime; }, GetRoundsPlayed: () => { calls++; return Math.max(0, stats.rounds); }, SetRoundRemainingTime: (t) => { calls++; roundTime = t; },
   ServerCommand: (c) => { calls++; stats.cvars.push(c); },
   FindEntityByName: (n) => { calls++; return world.get(n); },
   GetPlayerController: (s) => { calls++; const c = players[s]; return c && c.connected ? c : undefined; },
@@ -163,7 +163,8 @@ function dumpState(why) {
 function endRound(reason) {
   if (!roundLive) return;
   roundLive = false; stats.rounds++;
-  const winner = reason === 9 || reason === 3 ? 2 : reason === 8 || reason === 4 || reason === 5 ? 3 : 0;
+  const winner = reason === 9 ? 2 : reason === 8 ? 3 : 0;     // (the script sends 9 / 8 for wins, 10 or 2 for a draw)
+  if (![8, 9, 10, 2].includes(reason)) throw new Error('unexpected FireWinCondition ' + reason);
   stats.wins[reason] = (stats.wins[reason] || 0) + 1;
   hooks.OnRoundEnd({ winningTeam: winner, reason });
   after(5, startRound);
@@ -275,6 +276,9 @@ while (time < SECONDS) {
   stats.callsPerTick.push(calls);
   if (time - lastPrint > 60) { lastPrint = time; stats.money.push(players.slice(0, 4).map((c) => c.money)); }
 }
+// guns players hold, and their spare ammo (a bought gun should have had its ammo bought too, for bots at least)
+{ const prim = []; for (const c of players) if (c.pawn && c.pawn.alive) for (const w of c.pawn.weapons) if (w.data.d[2] === 0) prim.push((c.bot ? 'bot ' : '') + w.cls.replace('weapon_', '') + ':' + w.clip + '/' + w.reserve);
+  console.log('primaries at the end:', prim.slice(0, 12).join(', ')); }
 const avg = (a) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
 const pct = (a, q) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length * q)]; };
 console.log(`players ${N}, ${SECONDS} s: rounds ${stats.rounds} (end reasons ${JSON.stringify(stats.wins)}), kills ${stats.kills}, plants ${stats.plants}, defuses ${stats.defuses}, explosions ${stats.explodes}, falls ${stats.falls}`);

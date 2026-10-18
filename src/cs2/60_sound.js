@@ -23,6 +23,11 @@ function soundEnt(name) {
 
 function pawnName(slot) { return 'cs16_pawn_' + slot; }
 
+const soundQueue = [];          // [list, name] that didn't fit in a tick
+function flushSounds() {
+  const q = soundQueue.splice(0);
+  for (const [list, name] of q) playToMany(list, name);
+}
 function playToMany(list, name) {
   if (!CONFIG.SOUNDS) return;
   const snd = soundEnt(SND_ALIAS[name] || name);
@@ -31,7 +36,7 @@ function playToMany(list, name) {
   const used = [];
   for (const rec of list) {
     if (!rec.alive || !rec.pos || !rec.pawn) continue;
-    if (soundsThisTick >= CONFIG.MAX_SOUNDS_PER_TICK) return;
+    if (soundsThisTick >= CONFIG.MAX_SOUNDS_PER_TICK) { soundQueue.push([list.slice(list.indexOf(rec)), name]); return; }
     let shared = false;
     for (const p of used) {
       const dx = p.x - rec.pos.x, dy = p.y - rec.pos.y, dz = p.z - rec.pos.z;

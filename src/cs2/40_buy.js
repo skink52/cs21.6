@@ -5,7 +5,7 @@
 function canBuyNow(rec) {
   if (!rec.alive || !rec.map) return '';
   if (!rec.inBuy) return '';
-  if (Instance.IsWarmupPeriod()) return null;
+  if (isWarmup()) return null;
   if (round.frozen || round.freezeEnd === null) return null;
   if (now() - round.freezeEnd > CONFIG.BUY_TIME) return Math.round(CONFIG.BUY_TIME) + ' seconds have passed.\nYou can\'t buy anything now!';
   return null;
@@ -55,6 +55,14 @@ function buy(rec, item, quiet) {
   const why = canBuyNow(rec);
   if (why !== null) { if (why && !quiet) message(rec, why, 3); return false; }
   const inv = inventory(rec, pawn);
+  // a gun bought a moment ago that CS2 hasn't handed over yet: its ammo is the pending number
+  for (const f of rec.ammoFix) {
+    if (f.slot === 'primary' || f.slot === 'secondary') {
+      const id = BY_CLASS[f.cls];
+      inv[f.slot] = id;
+      inv[f.slot + 'Ammo'] = { reserve: Math.max(0, f.reserve), max: AMMO[WEAPONS[id].ammo].max, type: WEAPONS[id].ammo, fix: f };
+    }
+  }
   /** @type {any} */
   let plan = planPurchase(inv, item);
   if (!plan.ok) { if (!quiet) message(rec, plan.msg, 3); return false; }
@@ -67,7 +75,7 @@ function buy(rec, item, quiet) {
       inv.money -= plan.price; a.reserve = rounds;
       plan = CONFIG.AMMO_FILL ? planPurchase(inv, item) : { ok: false };
     } while (plan.ok);
-    a.w.SetReserveAmmo(rounds);
+    if (a.fix) a.fix.reserve = rounds; else a.w.SetReserveAmmo(rounds);
     spend(rec, total);
     playTo(rec, 'ammo');
     rec.bought.push(item);
@@ -96,7 +104,12 @@ function buy(rec, item, quiet) {
     pawn.GiveNamedItem(w.cls, w.slot !== 'grenade');
     if (plan.give === 'flashbang') rec.flashes = inv.nades.flashbang + 1;
     // 1.6: a bought gun comes with one magazine and no spare ammo (buy ammo separately)
-    if (w.slot === 'primary' || w.slot === 'secondary') rec.ammoFix.push({ cls: w.cls, reserve: CONFIG.SPARE_AMMO_ON_BUY ? -1 : 0, until: now() + 1 });
+    if ((w.slot === 'primary' || w.slot === 'secondary') && !CONFIG.SPARE_AMMO_ON_BUY) {
+      rec.ammoFix = rec.ammoFix.filter((f) => f.slot !== w.slot);
+      const got = pawn.FindWeapon(w.cls);
+      if (got && got !== inv.primW && got !== inv.secW) got.SetReserveAmmo(0);
+      else rec.ammoFix.push({ cls: w.cls, slot: w.slot, reserve: 0, until: now() + 1 });
+    }
     spend(rec, plan.price);
     playTo(rec, 'gunpickup');
   }

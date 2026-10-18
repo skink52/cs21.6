@@ -13,6 +13,8 @@ const CONFIG = {
   RESTART_DELAY: 5,            // seconds between the round result and the next round (1.6: 5)
   FINISH_GRACE: 90,            // once one map is decided the others get at most this long (0 = no limit); planted bombs play out
   SET_ROUND_TIME: true,        // set CS2's round clock from the script (otherwise mp_roundtime)
+  DRAW_REASONS: [10, 2],       // FireWinCondition values tried for a draw (see TESTING.md)
+  EXACT_END_REASONS: false,    // send bombed / defused / saved to CS2 instead of plain T / CT wins (see TESTING.md)
 
   // 1.6 rules (switch any off to keep CS2's)
   DAMAGE_16: true,             // 1.6 weapon damage, armour, knife, HE grenade and C4 blast
@@ -50,6 +52,7 @@ const CONFIG = {
   APPLY_CVARS: true,
   CVARS: [
     'mp_ignore_round_win_conditions 1',     // the script ends rounds (several maps at once)
+    'mp_halftime 0',                        // 1.6 had no half time
     'mp_give_player_c4 0',                  // one bomb per map, given by the script
     'mp_playercashawards 0', 'mp_teamcashawards 0',   // 1.6 money is paid by the script
     'mp_free_armor 0', 'mp_buy_anywhere 0', 'mp_death_drop_gun 1', 'mp_death_drop_defuser 1',

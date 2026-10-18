@@ -52,8 +52,9 @@ function overallResult(rounds) {
   return { winner: 0, reason: 'draw' };
 }
 
-// CSRoundEndReason values for FireWinCondition
-const END_REASON = { bombed: 3, saved: 4, defused: 5, draw: 2, ct: 8, t: 9 };
+// FireWinCondition values when CONFIG.EXACT_END_REASONS is on (CS2's own round-end numbering, as CounterStrikeSharp has
+// it: 1 bombed, 7 defused, 8 CTs win, 9 Terrorists win, 10 draw, 12 saved). Off by default: wins send 8 / 9 only.
+const END_REASON = { bombed: 1, saved: 12, defused: 7, draw: 10, ct: 8, t: 9 };
 function endReasonFor(res) {
   if (res.reason === 'bombed') return END_REASON.bombed;
   if (res.reason === 'defused') return END_REASON.defused;

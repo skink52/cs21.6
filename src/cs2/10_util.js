@@ -2,6 +2,10 @@
 // the game time of the current server tick (read once per think; it doesn't change within a tick)
 let tickTime = 0, tickNo = 0, inThink = false;
 function now() { return inThink ? tickTime : Instance.GetGameTime(); }
+// warmup / freeze time, read once per tick
+let warmTick = -1, warmVal = false, frzTick = -1, frzVal = false;
+function isWarmup() { if (warmTick !== tickNo || !inThink) { warmVal = Instance.IsWarmupPeriod(); warmTick = inThink ? tickNo : -1; } return warmVal; }
+function isFrozen() { if (frzTick !== tickNo || !inThink) { frzVal = Instance.IsFreezePeriod(); frzTick = inThink ? tickNo : -1; } return frzVal; }
 
 function log(msg) { Instance.Msg('[cs16] ' + msg); }
 function dlog(msg) { if (CONFIG.DEBUG) log(msg); }
@@ -31,7 +35,11 @@ function slotOf(e) {
   if (!e) return undefined;
   try {
     const x = /** @type {any} */ (e);
-    if (typeof x.GetPlayerController === 'function') { const c = x.GetPlayerController(); return c ? c.GetPlayerSlot() : undefined; }
+    if (typeof x.GetPlayerController === 'function') {
+      // (a dead pawn may have no current controller: then the one it was spawned for)
+      const c = x.GetPlayerController() || (typeof x.GetOriginalPlayerController === 'function' ? x.GetOriginalPlayerController() : undefined);
+      return c ? c.GetPlayerSlot() : undefined;
+    }
     if (typeof x.GetPlayerSlot === 'function') return x.GetPlayerSlot();
   } catch (err) { /* ignore */ }
   return undefined;

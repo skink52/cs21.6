@@ -83,7 +83,8 @@ function onModifyDamage(ev) {
       const a = att.GetEyeAngles().yaw * Math.PI / 180, v = pawn.GetAbsAngles().yaw * Math.PI / 180;
       back = Math.cos(a) * Math.cos(v) + Math.sin(a) * Math.sin(v) > 0.8;
     }
-    const dmg = knifeDamage16(stab, chained, back) * (HIT_MULT[hg] ?? 1);
+    let dmg = knifeDamage16(stab, chained, back) * (HIT_MULT[hg] ?? 1);
+    if (CONFIG.CS2_REAPPLIES_HITGROUP) dmg /= (HIT_MULT[hg] ?? 1);
     return finish(ev, pawn, dmg, WEAPONS.knife.armor, isArmored(hg, pawn.HasHelmet()), false);
   }
   // bullets
