@@ -563,7 +563,7 @@ add(entity('custom_hud_layout', (tsp[0] + 32, tsp[1], tsp[2] + 64), props={'targ
 # map so the models are loaded with the map
 cfg_js = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'cs2', '00_config.js')
 if os.path.exists(cfg_js):
-    for i, mdl in enumerate(re.findall(r"'(characters/models/[^']+\.vmdl)'", open(cfg_js).read())):
+    for i, mdl in enumerate(re.findall(r"'((?:characters/models|models/player/cs16)/[^']+\.vmdl)'", open(cfg_js).read())):
         add(entity('prop_dynamic', (tsp[0] + 48 * i, tsp[1], tsp[2] - 2400), props={'targetname': 'cs16_cache_%d' % i, 'model': mdl, 'solid': '0',
                    'disableshadows': '1', 'DefaultAnim': ''}, group=GROUP))
 # point_soundevents for the script (sound names from _gen/sounds.json when the sound tool has run)

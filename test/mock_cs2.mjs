@@ -104,7 +104,7 @@ class Pawn extends Entity {
   GiveNamedItem(cls) { calls++; if (OPTS.includes('defer')) after(0.02, () => { if (this.alive) this.give(cls); }); else this.give(cls); }
   DropWeapon(w) { calls++; this.weapons = this.weapons.filter((x) => x !== w); if (this.active === w) this.active = this.weapons[0]; }
   DestroyWeapon(w) { calls++; this.DropWeapon(w); }
-  SetModel(m) { calls++; stats.models++; if (!/^characters\/models\/.+\.vmdl$/.test(m)) throw new Error('bad model ' + m); }
+  SetModel(m) { calls++; stats.models++; if (!/^(characters\/models|models\/player\/cs16)\/.+\.vmdl$/.test(m)) throw new Error('bad model ' + m); }
   TakeDamage(d) {
     calls++;
     const r = hooks.OnModifyPlayerDamage ? hooks.OnModifyPlayerDamage({ player: this, damage: d.damage, damageTypes: d.damageTypes || 0, damageFlags: d.damageFlags || 0, hitGroup: 0 }) : undefined;

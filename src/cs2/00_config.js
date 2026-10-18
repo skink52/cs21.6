@@ -34,6 +34,7 @@ const CONFIG = {
   CLASS_MENU: true,            // the 1.6 class (player model) menu when joining a team
   CLASS_MENU_SECONDS: 25,      // auto-select after this long
   SET_MODELS: true,
+  MODELS_16: true,             // the 1.6 player models (false: CS2 agents stand in for the 1.6 classes)
   MENU_MOUSE: true,            // menus use CS2's cursor mode (click a row); false: W / S to move, E to pick, R to go back
   BUY_KEY_INSPECT: true,       // F (inspect) opens the buy menu in a buy zone
   BUY_KEY_CS2: true,           // CS2's buy key opens it too (if CS2 shows its buy menu at all)
@@ -72,8 +73,15 @@ const CONFIG = {
 };
 
 const VERSION = '0.1.0';
-// stand-in CS2 agents for the 1.6 classes until the 1.6 player models are converted
-const CLASS_MODELS = {
+// the 1.6 player models, rebuilt on CS2's player skeleton (tools/models.py)
+const CLASS_MODELS_16 = {
+  terror: 'models/player/cs16/terror/terror.vmdl', leet: 'models/player/cs16/leet/leet.vmdl',
+  arctic: 'models/player/cs16/arctic/arctic.vmdl', guerilla: 'models/player/cs16/guerilla/guerilla.vmdl',
+  urban: 'models/player/cs16/urban/urban.vmdl', gsg9: 'models/player/cs16/gsg9/gsg9.vmdl',
+  sas: 'models/player/cs16/sas/sas.vmdl', gign: 'models/player/cs16/gign/gign.vmdl',
+};
+// CS2 agents for the same classes (MODELS_16: false, or if the 1.6 models are missing)
+const CLASS_MODELS_CS2 = {
   terror: 'characters/models/tm_phoenix/tm_phoenix.vmdl',
   leet: 'characters/models/tm_leet/tm_leet_varianta.vmdl',
   arctic: 'characters/models/tm_balkan/tm_balkan_variantf.vmdl',
@@ -83,3 +91,4 @@ const CLASS_MODELS = {
   sas: 'characters/models/ctm_sas/ctm_sas.vmdl',
   gign: 'characters/models/ctm_gendarmerie/ctm_gendarmerie_varianta.vmdl',
 };
+const CLASS_MODELS = CONFIG.MODELS_16 ? CLASS_MODELS_16 : CLASS_MODELS_CS2;

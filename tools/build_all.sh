@@ -15,6 +15,7 @@ python3 preview/scene.py out/addon/maps/mg_cs16.vmap out/addon preview/build
 python3 preview/shot.py build/load '[{"x":-832,"y":-704,"z":196,"yaw":159,"pitch":0,"fov":85},{"x":3872,"y":1568,"z":-156,"yaw":270,"pitch":0,"fov":85},{"x":5264,"y":-5648,"z":-284,"yaw":180,"pitch":0,"fov":85}]' 1920 1080
 python3 tools/loading.py out/addon/maps/mg_cs16.vmap out/addon out/game build/load_0.png build/load_1.png build/load_2.png
 python3 tools/hud.py "$HL/cstrike" out/addon
+python3 tools/models.py "$HL/cstrike" "$CS2/content/csgo_addons/mg_mario_party/models/player/custom_player/kuristaja/octodad/cs2" out/addon build/models
 node tools/build.mjs
 node test/core_test.cjs
 node test/mock_cs2.mjs 64 300

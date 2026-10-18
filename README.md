@@ -28,14 +28,16 @@ Up to 64 players: small games play one map; bigger games split each team over tw
   HE grenade, C4 blast and fall damage. CS2 still decides what was hit.
 - **HUD.** The 1.6 HUD, made from the 1.6 sprites: health, armour, round timer, money with +/-, ammo, buy zone / C4 /
   defuse kit icons, centre messages. `!hud raised` (default, above CS2's own boxes), `!hud classic` (1.6 positions), `!hud off`.
-- **Players.** The 1.6 class menu (CS2 agents stand in for the 1.6 models for now); `!class` opens it again. CTs get the
-  USP instead of the P2000, everyone spawns with 1.6 spare ammo and no armour. 1.6 movement settings and jump height.
+- **Players.** The eight 1.6 player models, rebuilt on CS2's player skeleton so CS2's animations, hit boxes and ragdolls
+  work with them, chosen in the 1.6 class menu (`!class` opens it again; `MODELS_16: false` uses CS2 agents instead).
+  CTs get the USP instead of the P2000, everyone spawns with 1.6 spare ammo and no armour. 1.6 movement settings and
+  jump height.
 - **Sound.** 1.6 gun, knife, grenade and C4 sounds; 1.6 radio at round start, round end, bomb planted / defused,
   "Fire in the hole".
 - **Bots.** CS2 bots play and buy 1.6 gear when they spawn.
 
 The weapons are CS2's own, mapped to the 1.6 roster (e.g. CV-47 = AK-47, K&M .45 = USP-S, Schmidt TMP = MP9,
-Krieg 550 = SCAR-20); their recoil and movement speed stay CS2's.
+Krieg 550 = SCAR-20); their recoil and movement speed stay CS2's. The first-person arms are a CS2 agent's.
 
 ## Building
 
@@ -48,6 +50,7 @@ gcc -O2 -o build/cliphull tools/goldsrc/cliphull.c -lm
 python3 tools/dump_soundevents.py ".../game/csgo/pak01_dir.vpk" build weapons     # CS2's weapon sound events
 python3 tools/sounds.py "$HL/cstrike" "$HL/valve" "$ADDON/soundevents/soundevents_addon.vsndevts" build/soundevents_weapons.json out/addon
 python3 tools/convert_map.py "$ADDON/maps/mg_cs16.vmap" "$HL/cstrike" "$HL/valve" out/addon
+python3 tools/models.py "$HL/cstrike" <CS2 agent decompiled to ModelDoc> out/addon     # 1.6 player models
 python3 tools/loading.py out/addon/maps/mg_cs16.vmap out/addon out/game <shot pngs>   # radar, loading screens, icon
 python3 tools/hud.py "$HL/cstrike" out/addon
 node tools/build.mjs                                  # -> out/addon/maps/scripts/cs16.js
@@ -65,6 +68,7 @@ on its own output replaces only what it made (vis group `cs16_gen`).
 | `tools/goldsrc/` | BSP / WAD readers, texture conversion, clip-hull recovery (`cliphull.c`) |
 | `tools/hud.py` | the 1.6 HUD and menus for Panorama from the 1.6 sprites, VGUI pictures and `cstrike_english.txt` |
 | `tools/sounds.py` | 1.6 wavs for CS2, the radio events, CS2 weapon events re-pointed at 1.6 sounds |
+| `tools/models.py`, `tools/goldsrc/mdl.py` | the 1.6 player models (.mdl) moved onto CS2's player skeleton, with their textures; needs one CS2 agent decompiled to ModelDoc with Source 2 Viewer (`.vmdl` + `_thirdperson_body.dmx`, first-person arms, sleeves, tools preview), whose skeleton, hit boxes, ragdoll, first-person arms and animation graph are reused |
 | `tools/loading.py` | radar overview of the three maps, loading screens, map icon |
 | `tools/build.mjs` | joins `src/` into the map script |
 | `src/core/` | 1.6 rules as plain functions (damage, armour, money, buying, map split, round results) |

@@ -19,7 +19,10 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
    picture and description on the right? If clicks don't work: `MENU_MOUSE: false` (W / S / E / R instead).
    Does CS2's B key open anything (with "Nobody can buy" in the map)?
 5. **Radio sounds** ("Go go go", "Terrorists win"): heard by you only, once, not by the whole server.
-6. **Player models**: the class menu changes your agent; no errors about models in the console.
+6. **Player models.** The map build compiles `models/player/cs16/*` (a hidden prop of each sits under the map). Pick
+   each class in the class menu: the 1.6 model should stand, run, crouch and hold weapons with CS2's animations, with
+   no stretched or missing parts; shots should hit where the body is. If a model shows as an error, open its `.vmdl`
+   in ModelDoc and check the compile messages; `MODELS_16: false` goes back to CS2 agents.
 7. **cvars**: `sv_jump_impulse`, `sv_accelerate` and the `mp_` settings set by the script take (`sv_jump_impulse` in the
    console should say 268.33).
 8. **1.6 sounds compile.** If Hammer's build log complains about a `sounds/cs16/*.wav`, the extra data block the
