@@ -30,6 +30,7 @@ Up to 64 players: small games play one map; bigger games split each team over tw
   defuse kit icons, centre messages. `!hud raised` (default, above CS2's own boxes), `!hud classic` (1.6 positions), `!hud off`.
 - **Players.** The eight 1.6 player models, rebuilt on CS2's player skeleton so CS2's animations, hit boxes and ragdolls
   work with them, chosen in the 1.6 class menu (`!class` opens it again; `MODELS_16: false` uses CS2 agents instead).
+  The bomb carrier wears the 1.6 bomb pack and CTs with a defuse kit wear the kit, as in 1.6.
   CTs get the USP instead of the P2000, everyone spawns with 1.6 spare ammo and no armour. 1.6 movement settings and
   jump height.
 - **Sound.** 1.6 gun, knife, grenade and C4 sounds; 1.6 radio at round start, round end, bomb planted / defused,

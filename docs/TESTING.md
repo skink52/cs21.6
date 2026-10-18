@@ -23,6 +23,9 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
    each class in the class menu: the 1.6 model should stand, run, crouch and hold weapons with CS2's animations, with
    no stretched or missing parts; shots should hit where the body is. If a model shows as an error, open its `.vmdl`
    in ModelDoc and check the compile messages; `MODELS_16: false` goes back to CS2 agents.
+   The bomb carrier should wear the 1.6 bomb pack and CTs with a defuse kit the kit: the script swaps to a second copy
+   of the model (`<class>_pack.vmdl`) when that changes. If the swap disturbs the player (a twitch, a weapon reset),
+   set `PACKS_16: false`.
 7. **cvars**: `sv_jump_impulse`, `sv_accelerate` and the `mp_` settings set by the script take (`sv_jump_impulse` in the
    console should say 268.33).
 8. **1.6 sounds compile.** If Hammer's build log complains about a `sounds/cs16/*.wav`, the extra data block the

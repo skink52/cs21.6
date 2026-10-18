@@ -183,6 +183,8 @@ function onReset(pawn) {
   if (c && c.IsBot() && CONFIG.BOT_BUY) rec.botBuyAt = now() + 0.4 + Math.random() * 0.8;
   rec.health = pawn.GetHealth();
   rec.hpHot = rec.apHot = 0;
+  rec.hasC4 = false;
+  rec.hasDefuser = guard('defuser', () => team === TEAM_CT && pawn.HasDefuser()) || false;
   closeMenu(rec);
   applyModel(rec, pawn);
   const m = MAP_BY_KEY[rec.map];

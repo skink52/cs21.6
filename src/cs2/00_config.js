@@ -35,6 +35,7 @@ const CONFIG = {
   CLASS_MENU_SECONDS: 25,      // auto-select after this long
   SET_MODELS: true,
   MODELS_16: true,             // the 1.6 player models (false: CS2 agents stand in for the 1.6 classes)
+  PACKS_16: true,              // 1.6 models show the bomb pack on the C4 carrier and the defuse kit on CTs who have one
   MENU_MOUSE: true,            // menus use CS2's cursor mode (click a row); false: W / S to move, E to pick, R to go back
   BUY_KEY_INSPECT: true,       // F (inspect) opens the buy menu in a buy zone
   BUY_KEY_CS2: true,           // CS2's buy key opens it too (if CS2 shows its buy menu at all)

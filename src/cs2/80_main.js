@@ -41,7 +41,8 @@ function sampleSlow(rec, pawn, c) {
   rec.helmet = pawn.HasHelmet();
   rec.inBuy = !!rec.map && inBuyZone(rec.map, rec.team, p);
   rec.inSite = rec.hasC4 && !!rec.map && inBombSite(rec.map, p);
-  if (!pawn.IsAlive()) rec.alive = false;
+  if (!pawn.IsAlive()) { rec.alive = false; return; }
+  if (rec.cls && packWanted(rec) !== !!rec.packShown) applyModel(rec, pawn);
 }
 
 function playerTick(rec, t) {

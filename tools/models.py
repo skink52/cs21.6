@@ -30,6 +30,7 @@ CLASSES = ['terror', 'leet', 'arctic', 'guerilla', 'urban', 'gsg9', 'sas', 'gign
 MODEL_DIR = 'models/player/cs16'
 MAT_DIR = 'materials/models/player/cs16'
 GIRTH = 1.12            # CS2 agents are bigger than the 1.6 models: widen everything by this much
+FLOOR_CS = 0.0          # the floor under CS2's skeleton in its bind pose
 
 # ---------------------------------------------------------------- the template (CS2 skeleton in its bind pose)
 tfiles = os.listdir(TPL)
@@ -125,7 +126,7 @@ def frame(p, s):
     return np.stack([x, y, z], 1)
 
 
-def piece_transforms(m):
+def piece_transforms(m, floor16):
     """per 1.6 bone: (pivot16, pivotCS, R, axis16, along) mapping a reference-pose point to the CS2 bind pose"""
     names = [b['name'] for b in m.bones]
     T16 = {n: G @ m.T[i] for i, n in enumerate(names)}
@@ -141,6 +142,13 @@ def piece_transforms(m):
             d16 = T16[c16] - T16[n]; dcs = J(ccs2) - J(ccs)
             L16, Lcs = np.linalg.norm(d16), np.linalg.norm(dcs)
             u16, ucs = d16 / L16, dcs / Lcs
+            if n.endswith('Foot'):
+                # feet: the 1.6 boot keeps its sole flat on the floor; it only turns to point where CS2's foot points
+                h16 = np.array([u16[0], u16[1], 0.]); hcs = np.array([ucs[0], ucs[1], 0.])
+                R = arc(h16 / np.linalg.norm(h16), hcs / np.linalg.norm(hcs))
+                pcs = J(ccs).copy(); pcs[2] = FLOOR_CS + (T16[n][2] - floor16) * GIRTH
+                out[n] = (T16[n], pcs, R, None, GIRTH)
+                continue
             if 'Hand' in n:
                 # hands: also line the thumb up, so the palm faces the right way
                 s = n.split()[1]
@@ -152,6 +160,8 @@ def piece_transforms(m):
                 R = arc(u16, ucs)
             along = float(np.clip(Lcs / L16, 0.6, 1.8))
             out[n] = (T16[n], J(ccs), R, u16, along)
+        elif n.endswith('Toe0'):
+            out[n] = out[INHERIT[n]]
         else:
             p = out[INHERIT[n]]
             out[n] = (T16[n], J(MAP[n][0]), p[2], None, GIRTH)
@@ -202,39 +212,47 @@ def write_material(cls, tex_i, m):
 
 
 # ---------------------------------------------------------------- one class
-def build(cls):
+def build(cls, pack=False):
+    """the body (and with pack=True the 1.6 bomb pack / defuse kit body part) as <cls>[_pack].vmdl"""
     m = MDL(os.path.join(CS, 'models/player/%s/%s.mdl' % (cls, cls)))
-    tr, names = piece_transforms(m)
-    model = m.bodyparts[0]['models'][0]                       # the body (the bomb / defuse pack body part is left out)
-    V, N = m.world(model)
-    V16 = V @ G.T; N16 = N @ G.T
-    newV = np.zeros_like(V16); newN = np.zeros_like(N16); vj = np.zeros(len(V), int)
-    for i in range(len(V)):
-        bn = names[model['vbone'][i]]
-        t = tr.get(bn) or tr['Bip01 Pelvis']
-        newV[i] = move(V16[i:i + 1], t)[0]
-        vj[i] = JIDX[MAP.get(bn, ('pelvis',))[0]]
-    for i in range(len(N)):
-        bn = names[model['nbone'][i]]
-        t = tr.get(bn) or tr['Bip01 Pelvis']
-        n = t[2] @ N16[i]; newN[i] = n / (np.linalg.norm(n) or 1)
-    # corners: (vertex, normal, s, t) -> one DMX vertex each (positions keep their own list)
-    mats, sets, texs = [], [], []
+    body = m.bodyparts[0]['models'][0]
+    Vb, _ = m.world(body)
+    tr, names = piece_transforms(m, Vb[:, 2].min())
+    models = [body]
+    if pack and len(m.bodyparts) > 1 and len(m.bodyparts[1]['models']) > 1: models.append(m.bodyparts[1]['models'][1])
+    allV, allN, allJ = [], [], []
+    by_mat = {}                 # material -> (faces, texture index)
     corner_key, cpos, cnorm, cuv = {}, [], [], []
-    tri_count = 0
-    for me in model['meshes']:
-        tex = m.skinref[me['skin']] if me['skin'] < len(m.skinref) else me['skin']
-        mat, w, h = write_material(cls, tex, m)
-        faces = []
-        for tri in me['tris']:
-            idx = []
-            for (vi, ni, s, t) in tri:
-                k = (vi, ni, s, t)
-                if k not in corner_key:
-                    corner_key[k] = len(cpos); cpos.append(vi); cnorm.append(ni); cuv.append((s / w, t / h))
-                idx.append(corner_key[k])
-            faces.append(idx)
-        mats.append(mat); sets.append(faces); tri_count += len(faces); texs.append(m.texture_rgba(tex))
+    vo = no = 0
+    for model in models:
+        V, N = m.world(model)
+        V16 = V @ G.T; N16 = N @ G.T
+        for i in range(len(V)):
+            bn = names[model['vbone'][i]]
+            t = tr.get(bn) or tr['Bip01 Pelvis']
+            allV.append(move(V16[i:i + 1], t)[0])
+            allJ.append(JIDX[MAP.get(bn, ('pelvis',))[0]])
+        for i in range(len(N)):
+            bn = names[model['nbone'][i]]
+            t = tr.get(bn) or tr['Bip01 Pelvis']
+            n = t[2] @ N16[i]; allN.append(n / (np.linalg.norm(n) or 1))
+        # corners: (vertex, normal, s, t) -> one DMX vertex each
+        for me in model['meshes']:
+            tex = m.skinref[me['skin']] if me['skin'] < len(m.skinref) else me['skin']
+            mat, w, h = write_material(cls, tex, m)
+            faces = by_mat.setdefault(mat, ([], tex))[0]
+            for tri in me['tris']:
+                idx = []
+                for (vi, ni, s_, t_) in tri:
+                    k = (vi + vo, ni + no, s_, t_)
+                    if k not in corner_key:
+                        corner_key[k] = len(cpos); cpos.append(vi + vo); cnorm.append(ni + no); cuv.append((s_ / w, t_ / h))
+                    idx.append(corner_key[k])
+                faces.append(idx)
+        vo += len(V); no += len(N)
+    newV, newN, vj = np.array(allV), np.array(allN), np.array(allJ)
+    mats = list(by_mat); sets = [by_mat[k][0] for k in mats]; texs = [m.texture_rgba(by_mat[k][1]) for k in mats]
+    tri_count = sum(len(f) for f in sets)
     # winding: CS2 wants the faces counter-clockwise seen from the front (the side the normals point to)
     agree = 0
     for faces in sets:
@@ -286,11 +304,12 @@ def build(cls):
         fs['faces'] = fl
         new_sets.append(fs)
     mesh['faceSets'] = new_sets
-    mesh.name = 'cs16_%s_body' % cls
+    sfx = '_pack' if pack else ''
+    mesh.name = 'cs16_%s%s_body' % (cls, sfx)
     for e in dm.elements:
-        if e.type == 'DmeDag' and e['shape'] is mesh: e.name = 'cs16_%s_body' % cls
+        if e.type == 'DmeDag' and e['shape'] is mesh: e.name = mesh.name
     d = os.path.join(OUT, MODEL_DIR, cls); os.makedirs(d, exist_ok=True)
-    dm.save(os.path.join(d, '%s_body.dmx' % cls))
+    dm.save(os.path.join(d, '%s%s_body.dmx' % (cls, sfx)))
     # ---- the vmdl: the template's, with our body and the shared first-person arms
     t = open(TPL_VMDL, encoding='utf-8').read()
     def swap(name, path):
@@ -298,11 +317,11 @@ def build(cls):
         t2 = re.sub(r'(name = "%s"\s*\n\s*filename = ")[^"]+(")' % re.escape(name), r'\g<1>%s\g<2>' % path, t)
         assert t2 != t, 'no render mesh named ' + name
         t = t2
-    swap('thirdperson_body', '%s/%s/%s_body.dmx' % (MODEL_DIR, cls, cls))
+    swap('thirdperson_body', '%s/%s/%s%s_body.dmx' % (MODEL_DIR, cls, cls, sfx))
     swap('firstperson_default_gloves_arms', MODEL_DIR + '/shared/firstperson_arms.dmx')
     swap('firstperson_sleeves', MODEL_DIR + '/shared/firstperson_sleeves.dmx')
     t = re.sub(r'(source_filename = ")[^"]*_tools_preview\.dmx(")', r'\g<1>%s/shared/tools_preview.dmx\g<2>' % MODEL_DIR, t)
-    open(os.path.join(d, '%s.vmdl' % cls), 'w', encoding='utf-8', newline='\n').write(t)
+    open(os.path.join(d, '%s%s.vmdl' % (cls, sfx)), 'w', encoding='utf-8', newline='\n').write(t)
     return newV[cpos], np.array(cuv), sets, texs, vj[cpos], tri_count, len(mats)
 
 
@@ -339,8 +358,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from model_render import render
 MARK = np.array([WCS[n][1] for n in WCS if 'TWIST' not in n and 'finger' not in n and n not in ('eye_target', 'wpn', 'wpnPivot', 'root_motion')])
 for cls in CLASSES:
-    P, UV, sets, texs, cj, ntri, nmat = build(cls)
-    print('%-9s %4d vertices, %4d triangles, %d materials' % (cls, len(P), ntri, nmat) + ('; bones following a parent: ' + ', '.join(sorted(UNKNOWN)) if UNKNOWN else ''))
+    build(cls, pack=False)
+    P, UV, sets, texs, cj, ntri, nmat = build(cls, pack=True)
+    print('%-9s %4d vertices, %4d triangles with the pack, %d materials' % (cls, len(P), ntri, nmat) + ('; bones following a parent: ' + ', '.join(sorted(UNKNOWN)) if UNKNOWN else ''))
     UNKNOWN.clear()
     if PREVIEW:
         os.makedirs(PREVIEW, exist_ok=True)

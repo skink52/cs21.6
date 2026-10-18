@@ -146,6 +146,14 @@ function chooseClass(rec, id) {
 }
 function applyModel(rec, pawn) {
   if (!CONFIG.SET_MODELS || !rec.cls || rec.clsTeam !== rec.team) return;
-  const mdl = CLASS_MODELS[rec.cls];
-  if (mdl) guard('model', () => pawn.SetModel(mdl));
+  let mdl = CLASS_MODELS[rec.cls];
+  if (!mdl) return;
+  // 1.6: the bomb carrier wears the bomb pack, a CT with a defuse kit wears the kit (a second copy of the model)
+  rec.packShown = packWanted(rec);
+  if (rec.packShown) mdl = mdl.replace('.vmdl', '_pack.vmdl');
+  guard('model', () => pawn.SetModel(mdl));
+}
+function packWanted(rec) {
+  if (!CONFIG.MODELS_16 || !CONFIG.PACKS_16 || !rec.alive) return false;
+  return rec.team === TEAM_T ? rec.hasC4 : rec.team === TEAM_CT ? rec.hasDefuser : false;
 }
