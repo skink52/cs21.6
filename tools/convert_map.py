@@ -18,6 +18,7 @@ import dmx9
 from dmx9 import T_STRING, T_VEC3, T_QANGLE
 from bsp import BSP
 import textures as TX
+import vishints as VH
 import meshlib as ML
 from meshlib import Face, polymesh, mapmesh, entity, box_faces
 
@@ -174,6 +175,14 @@ def faces_for(b, fis, off, override=None, ent=None):
     return out
 
 
+DRAWN_BRUSH = ('func_wall', 'func_illusionary', 'func_breakable', 'func_door', 'func_door_rotating')
+
+
+def see_through(b, mi, e):
+    """1.6 brush entity drawn see-through: masked ({) textures or a translucent render mode"""
+    return e.get('rendermode', '0') in ('1', '2', '3', '5') or any(tex_name(b, fi).startswith('{') for fi in model_faces(b, mi))
+
+
 def mesh_from(faces, physics='default', castshadows=True):
     if not faces: return None
     P = np.array([p for f in faces for p in f.loop])
@@ -266,16 +275,23 @@ for M in MAPS:
     sky_vmat, moondome = sky_done[skyname.lower()]
     st = stats.setdefault(key, {})
     # ---- world geometry
-    world_faces, sky_faces, sky_shell, texlights = [], [], [], []
-    for fi in model_faces(b, 0):
+    world_faces, sky_faces, sky_shell, texlights, vis_polys = [], [], [], [], []
+    grid = VH.Grid(b)
+    drawn = [fi for fi in model_faces(b, 0) if tex_name(b, fi) not in TX.SKIP]
+    # sky faces looking into the inside of a sky brush that no open air can see into: drawn by nobody, but most of the sky
+    # surface CS2's vis would have to work through
+    unseen_sky = VH.unseen_sky(b, grid, drawn, [fi for fi in drawn if tex_name(b, fi) == TX.SKY])
+    for fi in drawn:
         name = tex_name(b, fi)
         P0, P = face_poly(b, fi, off)
+        n = b.face_normal(fi)
         if name == TX.SKY:
+            if fi in unseen_sky: continue
             sky_faces.append(Face([tuple(p) for p in P], moondome))
-            n = b.face_normal(fi)
             sky_shell.append(Face([tuple(p + n * 1.0) for p in P], TOOLS['skybox']))
+            vis_polys.append(P + n)
             continue
-        if name in TX.SKIP: continue
+        vis_polys.append(P + n)
         uv, axes = face_uv(b, fi, P0, off)
         world_faces.append(Face([tuple(p) for p in P], mat_for(name), uv, axes))
         if '~' in name:
@@ -289,7 +305,7 @@ for M in MAPS:
     for grp in chunked(sky_shell, 4096):
         m = mesh_from(grp, castshadows=False)
         if m: add(m)
-    st['world faces'] = len(world_faces); st['sky faces'] = len(sky_faces)
+    st['world faces'] = len(world_faces); st['sky faces'] = '%d (+%d hidden inside sky brushes, left out)' % (len(sky_faces), len(unseen_sky))
     # ---- player clips recovered from the collision hulls
     clip_txt = os.path.join(BUILD, 'clip_%s.txt' % M['bsp'])
     exe = os.path.join(BUILD, 'cliphull')
@@ -326,7 +342,9 @@ for M in MAPS:
         elif cl == 'func_wall' and mi:
             fs = faces_for(b, model_faces(b, mi), off, ent=e)
             m = mesh_from(fs)
-            if m: add(m)
+            if m:
+                if see_through(b, mi, e): m['visexclude'] = 1     # fences, grates, glass: must not hide what's behind
+                add(m)
         elif cl == 'func_illusionary' and mi:
             fs = faces_for(b, model_faces(b, mi), off, ent=e)
             m = mesh_from(fs)
@@ -379,7 +397,9 @@ for M in MAPS:
         elif cl == 'func_ladder' and mi:
             fs = faces_for(b, model_faces(b, mi), off, override=TOOLS['ladder'])
             m = mesh_from(fs, castshadows=False)
-            if m: add(m)
+            if m:
+                m['visexclude'] = 1
+                add(m)
         elif cl == 'func_buyzone' and mi:
             lo, hi = box_of(b, mi, off)
             team = 2 if e.get('team') == '1' else 3
@@ -520,7 +540,18 @@ for M in MAPS:
     pp.update({'targetname': 'cs16_%s_probes' % key, 'box_mins': '%g %g %g' % tuple(-h), 'box_maxs': '%g %g %g' % tuple(h), 'voxel_size': '48.0'})
     pp.pop('classname', None)
     add(entity('env_combined_light_probe_volume', c, props=pp, group=GROUP))
-    add(entity('visibility_hint', c, props={'hintType': '3', 'box_mins': '%g %g %g' % tuple(-h), 'box_maxs': '%g %g %g' % tuple(h)}, group=GROUP))
+    # vis: Low over every 256-unit cell holding air players can reach or a drawn face; the rest (solid, the void) is left to
+    # the Lowest box over everything below. Same resolution as one Low box over the whole map wherever there's anything to see.
+    for e in b.entities[1:]:
+        mdl = e.get('model', '')
+        if mdl.startswith('*') and e.get('classname') in DRAWN_BRUSH:
+            vis_polys += [face_poly(b, fi, off)[1] + b.face_normal(fi) for fi in model_faces(b, int(mdl[1:])) if tex_name(b, fi) not in TX.SKIP]
+    cells = VH.air_cells(grid, off, [o for t in spawns for o, _ in spawns[t]]) | VH.face_cells(vis_polys)
+    hint_boxes = VH.low_boxes(cells)
+    for lo, hi in hint_boxes:
+        add(entity('visibility_hint', (lo + hi) / 2, props={'hintType': '3', 'box_mins': '%g %g %g' % tuple((lo - hi) / 2),
+                   'box_maxs': '%g %g %g' % tuple((hi - lo) / 2)}, group=GROUP))
+    st['vis'] = '%d Low boxes, %d cells of 256 units (whole map: %d)' % (len(hint_boxes), len(cells), int(np.prod(np.ceil(2 * h / VH.CELL))))
     sp = spawns['T'][0][0]
     add(entity('point_nav_walkable', np.array(sp) + off - (0, 0, 20), props={'targetname': ''}, group=GROUP))
     bombradius = next((float(x.get('bombradius', 500)) for x in b.entities if x.get('classname') == 'info_map_parameters'), 500.0)

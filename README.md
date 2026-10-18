@@ -65,8 +65,8 @@ on its own output replaces only what it made (vis group `cs16_gen`).
 
 | File | What it does |
 |---|---|
-| `tools/convert_map.py` | 1.6 BSPs → one `.vmap`: geometry, textures, skies (moondomes), clips, doors, ladders, breakables, decals, lights, spawns (32 per team), buy zones, bomb sites, script entities; `_gen/maps.json` for the script |
-| `tools/goldsrc/` | BSP / WAD readers, texture conversion, clip-hull recovery (`cliphull.c`) |
+| `tools/convert_map.py` | 1.6 BSPs → one `.vmap`: geometry, textures, skies (moondomes), clips, doors, ladders, breakables, decals, lights, spawns (32 per team), buy zones, bomb sites, vis hints, script entities; `_gen/maps.json` for the script |
+| `tools/goldsrc/` | BSP / WAD readers, texture conversion, clip-hull recovery (`cliphull.c`), vis (`vishints.py`: sky faces hidden inside sky brushes left out, Low hints only where there's air or something drawn) |
 | `tools/hud.py` | the 1.6 HUD and menus for Panorama from the 1.6 sprites, VGUI pictures and `cstrike_english.txt` |
 | `tools/sounds.py` | 1.6 wavs for CS2, the radio events, CS2 weapon events re-pointed at 1.6 sounds |
 | `tools/models.py`, `tools/goldsrc/mdl.py` | the 1.6 player models (.mdl) moved onto CS2's player skeleton, with their textures; needs one CS2 agent decompiled to ModelDoc with Source 2 Viewer (`.vmdl` + `_thirdperson_body.dmx`, first-person arms, sleeves, tools preview), whose skeleton, hit boxes, ragdoll, first-person arms and animation graph are reused |

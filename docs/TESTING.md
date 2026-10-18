@@ -28,7 +28,11 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
    set `PACKS_16: false`.
 7. **cvars**: `sv_jump_impulse`, `sv_accelerate` and the `mp_` settings set by the script take (`sv_jump_impulse` in the
    console should say 268.33).
-8. **1.6 sounds compile.** If Hammer's build log complains about a `sounds/cs16/*.wav`, the extra data block the
+8. **Vis.** The build should spend much less time in vis than before: half of the surface vis works through (mostly sky
+   hidden inside 1.6 sky brushes) and more than half of the Low hint volume are gone. Walk each map: nothing should pop in or out
+   of view, and the sky should never show a hole or the wrong sky. If something does, note where: the Low hint boxes
+   (`visibility_hint`, vis group `cs16_gen`) can be widened.
+9. **1.6 sounds compile.** If Hammer's build log complains about a `sounds/cs16/*.wav`, the extra data block the
    file transfer adds at the end of each wav is the suspect (the sound itself is untouched).
 
 ## Checklist
