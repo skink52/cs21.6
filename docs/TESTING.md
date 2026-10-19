@@ -23,6 +23,9 @@ and `[cs16] script time: ...` once a minute. After changing the script or HUD, r
    each class in the class menu: the 1.6 model should stand, run, crouch and hold weapons with CS2's animations, with
    no stretched or missing parts; shots should hit where the body is. If a model shows as an error, open its `.vmdl`
    in ModelDoc and check the compile messages; `MODELS_16: false` goes back to CS2 agents.
+   In first person the hands should be 1.6's (black fingerless gloves, bare forearms) gripping CS2's guns, fingers
+   wrapped around the grip, and the forearm ending under a rolled-up sleeve at the elbow. Players with a glove skin
+   equipped may see their CS2 gloves instead (CS2 swaps those in itself).
    The bomb carrier should wear the 1.6 bomb pack and CTs with a defuse kit the kit: the script swaps to a second copy
    of the model (`<class>_pack.vmdl`) when that changes. If the swap disturbs the player (a twitch, a weapon reset),
    set `PACKS_16: false`.

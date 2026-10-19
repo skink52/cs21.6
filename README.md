@@ -38,7 +38,8 @@ Up to 64 players: small games play one map; bigger games split each team over tw
 - **Bots.** CS2 bots play and buy 1.6 gear when they spawn.
 
 The weapons are CS2's own, mapped to the 1.6 roster (e.g. CV-47 = AK-47, K&M .45 = USP-S, Schmidt TMP = MP9,
-Krieg 550 = SCAR-20); their recoil and movement speed stay CS2's. The first-person arms are a CS2 agent's.
+Krieg 550 = SCAR-20); their recoil and movement speed stay CS2's. The first-person hands are 1.6's (fingerless gloves,
+bare forearms) on CS2's arm and finger bones, holding CS2's guns.
 
 ## Building
 
@@ -69,7 +70,7 @@ on its own output replaces only what it made (vis group `cs16_gen`).
 | `tools/goldsrc/` | BSP / WAD readers, texture conversion, clip-hull recovery (`cliphull.c`), vis (`vishints.py`: sky faces hidden inside sky brushes left out, Low hints only where there's air or something drawn) |
 | `tools/hud.py` | the 1.6 HUD and menus for Panorama from the 1.6 sprites, VGUI pictures and `cstrike_english.txt` |
 | `tools/sounds.py` | 1.6 wavs for CS2, the radio events, CS2 weapon events re-pointed at 1.6 sounds |
-| `tools/models.py`, `tools/goldsrc/mdl.py` | the 1.6 player models (.mdl) moved onto CS2's player skeleton, with their textures; needs one CS2 agent decompiled to ModelDoc with Source 2 Viewer (`.vmdl` + `_thirdperson_body.dmx`, first-person arms, sleeves, tools preview), whose skeleton, hit boxes, ragdoll, first-person arms and animation graph are reused |
+| `tools/models.py`, `tools/goldsrc/mdl.py` | the 1.6 player models (.mdl) and the 1.6 view-model hands moved onto CS2's player skeleton, with their textures; needs one CS2 agent decompiled to ModelDoc with Source 2 Viewer (`.vmdl` + `_thirdperson_body.dmx`, first-person arms, sleeves, tools preview), whose skeleton, hit boxes, ragdoll, first-person arms and animation graph are reused |
 | `tools/loading.py` | radar overview of the three maps, loading screens, map icon |
 | `tools/build.mjs` | joins `src/` into the map script |
 | `src/core/` | 1.6 rules as plain functions (damage, armour, money, buying, map split, round results) |
