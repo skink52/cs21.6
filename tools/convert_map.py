@@ -183,11 +183,11 @@ def see_through(b, mi, e):
     return e.get('rendermode', '0') in ('1', '2', '3', '5') or any(tex_name(b, fi).startswith('{') for fi in model_faces(b, mi))
 
 
-def mesh_from(faces, physics='default', castshadows=True):
+def mesh_from(faces, physics='default', castshadows=True, islands=False):
     if not faces: return None
     P = np.array([p for f in faces for p in f.loop])
     o = tuple(np.round((P.min(0) + P.max(0)) / 2))
-    md = polymesh(faces, o)
+    md = polymesh(faces, o, islands=islands)
     if md is None: return None
     ML.check_mesh(md)
     return mapmesh(md, o, physics=physics, group=GROUP, castshadows=castshadows)
@@ -299,11 +299,13 @@ for M in MAPS:
     for grp in chunked(world_faces):
         m = mesh_from(grp)
         if m: add(m)
+    # sky: each face on its own (the faces left after the unseen ones go would otherwise meet only at corners in places,
+    # which Hammer's mesh loader tries to repair on load and crashes)
     for grp in chunked(sky_faces, 4096):
-        m = mesh_from(grp, castshadows=False)
+        m = mesh_from(grp, castshadows=False, islands=True)
         if m: add(m)
     for grp in chunked(sky_shell, 4096):
-        m = mesh_from(grp, castshadows=False)
+        m = mesh_from(grp, castshadows=False, islands=True)
         if m: add(m)
     st['world faces'] = len(world_faces); st['sky faces'] = '%d (+%d hidden inside sky brushes, left out)' % (len(sky_faces), len(unseen_sky))
     # ---- player clips recovered from the collision hulls

@@ -64,8 +64,9 @@ class Face:
         self.loop, self.mat, self.uv, self.axes = loop, mat, uv, axes
 
 
-def polymesh(faces, origin, weld=1e-3, texsize=512.0):
-    """faces: [Face]. Returns CDmePolygonMesh with vertices relative to origin."""
+def polymesh(faces, origin, weld=1e-3, texsize=512.0, islands=False):
+    """faces: [Face]. Returns CDmePolygonMesh with vertices relative to origin.
+    islands: every face gets its own vertices (no shared edges at all), for loose sets of faces such as sky shells."""
     q = 1.0 / weld
     vkey = {}
     verts = []
@@ -77,8 +78,9 @@ def polymesh(faces, origin, weld=1e-3, texsize=512.0):
         return i
 
     loops, origs = [], []
-    for f in faces:
+    for fi, f in enumerate(faces):
         K = [((round(p[0] * q), round(p[1] * q), round(p[2] * q)), p, j) for j, p in enumerate(f.loop)]
+        if islands: K = [(k + (fi,), p, j) for k, p, j in K]
         # drop repeated consecutive vertices (welding can merge neighbours)
         M = []
         for kp in K:
@@ -135,6 +137,21 @@ def polymesh(faces, origin, weld=1e-3, texsize=512.0):
             g = prev[g] ^ 1             # next half-edge leaving v (clockwise)
             if ef[g] == -1: break
         en[h] = g
+    # a vertex where faces meet only at a corner (two separate fans): one vertex per fan, so every vertex is manifold
+    # (Hammer otherwise "repairs" such vertices when it opens the map, and can crash doing it)
+    outs = {}
+    for h in range(nh): outs.setdefault(src[h], []).append(h)
+    for v, hs in list(outs.items()):
+        left = set(hs); first = True
+        while left:
+            g0 = min(left); fan = []; g = g0
+            for _ in range(len(hs) + 1):
+                fan.append(g); left.discard(g); g = en[g ^ 1]
+                if g == g0: break
+            if first: first = False; continue
+            nv = len(verts); verts.append(verts[v])
+            for g in fan: ev[g ^ 1] = nv
+    src = [ev[h ^ 1] for h in range(nh)]
     vedge = [-1] * len(verts)
     for h in range(nh):
         s = src[h]
