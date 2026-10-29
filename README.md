@@ -85,3 +85,7 @@ Settings are at the top of `src/cs2/00_config.js` (round time, map split, which 
 - de_dust2 by David Johnston (DaveJ), de_train by Chris Auty, de_nuke by Jo Bieg. Counter-Strike by Valve.
 - 1.6 rule numbers checked against [ReGameDLL_CS](https://github.com/s1lentq/ReGameDLL_CS).
 - Workflow and CS2 findings from skink52's cs2portdocs, hellmatch-cs2, space-racer-cs2 and cs2-fighter.
+
+## Licence
+
+Free for non-commercial use: copy, change, share and run it, including on game servers (donation/VIP servers are fine). Not to be sold, paywalled or built into a paid product or service. Code: [PolyForm Noncommercial 1.0.0](LICENSE). Art, models, sounds and maps: [CC BY-NC 4.0](LICENSE-CC-BY-NC-4.0.txt). See [LICENSE](LICENSE) for third-party parts that keep their own terms.
